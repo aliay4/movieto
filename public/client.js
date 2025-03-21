@@ -458,7 +458,26 @@ socket.on('videoStateUpdate', (data) => {
 // Aktif ekran paylaşımı kontrolü için olay dinleyicisi
 socket.on('activeScreenShare', (userId) => {
     webRTCLog('Aktif ekran paylaşımı bildirimi alındı, kullanıcı:', userId);
-    showNotification('Odada aktif bir ekran paylaşımı var');
+    showNotification('Ekran paylaşımı başlatıldı, bağlanılıyor...');
+    
+    // Kullanıcıya görsel geri bildirim
+    const videoContainer = document.getElementById('videoContainer');
+    videoContainer.innerHTML = `
+        <div class="loading-screen">
+            <div class="spinner"></div>
+            <p>Ekran paylaşımına bağlanılıyor...</p>
+        </div>
+    `;
+    
+    // YouTube player'ı kaldır (eğer varsa)
+    if (player) {
+        try {
+            player.destroy();
+            player = null;
+        } catch (e) {
+            webRTCLog('YouTube player kapatılırken hata:', e);
+        }
+    }
     
     // Ekran paylaşımı yapan kullanıcıya bağlantı teklifi gönder
     if (!peerConnection) {
@@ -467,7 +486,9 @@ socket.on('activeScreenShare', (userId) => {
         
         // Ekran paylaşımı yapan kullanıcıya özel olarak teklif gönder
         webRTCLog('Ekran paylaşımı yapan kullanıcıya teklif gönderiliyor');
-        createAndSendOffer(userId);
+        setTimeout(() => {
+            createAndSendOffer(userId);
+        }, 1000); // Bağlantının kurulması için kısa bir gecikme ekle
     }
 });
 
@@ -476,37 +497,56 @@ socket.on('screenShareStatusChanged', (data) => {
     webRTCLog('Ekran paylaşımı durumu değişti:', data);
     
     if (data.active) {
-        showNotification('Bir kullanıcı ekran paylaşımı başlattı');
+        showNotification('Ekran paylaşımına bağlanılıyor...');
+        
+        // Kullanıcıya görsel geri bildirim
+        const videoContainer = document.getElementById('videoContainer');
+        videoContainer.innerHTML = `
+            <div class="loading-screen">
+                <div class="spinner"></div>
+                <p>Ekran paylaşımına bağlanılıyor...</p>
+            </div>
+        `;
+        
+        // YouTube player'ı kaldır (eğer varsa)
+        if (player) {
+            try {
+                player.destroy();
+                player = null;
+            } catch (e) {
+                webRTCLog('YouTube player kapatılırken hata:', e);
+            }
+        }
         
         // Ekran paylaşımı başlatıldıysa ve bağlantı yoksa, bağlantı kur
         if (!peerConnection) {
             webRTCLog('Yeni ekran paylaşımı için bağlantı oluşturuluyor');
             createPeerConnection();
             webRTCLog('Ekran paylaşımı yapan kullanıcıya teklif gönderiliyor');
-            createAndSendOffer(data.userId);
+            setTimeout(() => {
+                createAndSendOffer(data.userId);
+            }, 1000); // Bağlantının kurulması için kısa bir gecikme ekle
         }
     } else {
         showNotification('Ekran paylaşımı durduruldu');
         
-        // Uzak videoyu kaldır ve YouTube videosunu geri yükle
-        if (remoteStream) {
-            webRTCLog('Uzak video akışı temizleniyor ve YouTube videosu geri yükleniyor');
+        // Video elementleri ve bağlantıları temizle
+        cleanupScreenShare();
+        
+        // Eğer YouTube videosu varsa geri yükle
+        if (currentRoom && rooms[currentRoom] && rooms[currentRoom].currentVideo) {
+            webRTCLog('YouTube videosu geri yükleniyor');
+            loadYouTubeVideo(rooms[currentRoom].currentVideo.videoUrl);
+        } else {
+            // Video yoksa placeholder göster
+            webRTCLog('Video placeholder gösteriliyor');
             const videoContainer = document.getElementById('videoContainer');
-            const remoteVideos = videoContainer.querySelectorAll('video:not(.local-video)');
-            remoteVideos.forEach(video => video.remove());
-            
-            // Eğer YouTube videosu varsa geri yükle
-            if (currentRoom && rooms[currentRoom] && rooms[currentRoom].currentVideo) {
-                webRTCLog('YouTube videosu geri yükleniyor');
-                loadYouTubeVideo(rooms[currentRoom].currentVideo.videoUrl);
-            }
-            
-            // Bağlantıyı kapat
-            if (peerConnection) {
-                webRTCLog('Peer bağlantısı kapatılıyor');
-                peerConnection.close();
-                peerConnection = null;
-            }
+            videoContainer.innerHTML = `
+                <div class="video-placeholder">
+                    <i class="fab fa-youtube"></i>
+                    <p>Video yüklemek için önce bir odaya katılın ve YouTube URL'si girin</p>
+                </div>
+            `;
         }
     }
 });
@@ -1021,130 +1061,8 @@ function createPeerConnection() {
             webRTCLog('Video izleri:', remoteStream.getVideoTracks().length);
             webRTCLog('Ses izleri:', remoteStream.getAudioTracks().length);
             
-            // İz detaylarını logla
-            remoteStream.getTracks().forEach(track => {
-                webRTCLog('İz türü:', track.kind, 'Etkin:', track.enabled, 'ID:', track.id);
-            });
-            
-            // Video elementini temizle ve yeniden oluştur
-            const videoContainer = document.getElementById('videoContainer');
-            
-            if (!videoContainer) {
-                webRTCLog('Hata: Video container elementi bulunamadı');
-                showNotification('Video gösterilemiyor: Container elementi bulunamadı');
-                return;
-            }
-            
-            webRTCLog('Video container bulundu, eski videolar temizleniyor');
-            
-            // Varolan videoları temizle
-            const existingVideos = videoContainer.querySelectorAll('video');
-            existingVideos.forEach(video => {
-                try {
-                    // Medya bağlantısını kaldır
-                    if (video.srcObject) {
-                        video.srcObject.getTracks().forEach(track => track.stop());
-                        video.srcObject = null;
-                    }
-                    video.remove();
-                    webRTCLog('Eski video elementleri kaldırıldı');
-                } catch (e) {
-                    webRTCLog('Video elementleri kaldırılırken hata:', e);
-                }
-            });
-            
-            // YouTube player varsa kaldır
-            const youtubePlayer = videoContainer.querySelector('#youtubePlayer');
-            if (youtubePlayer) {
-                youtubePlayer.remove();
-                webRTCLog('YouTube player kaldırıldı');
-            }
-            
-            try {
-                // Yeni video elementi oluştur
-                const remoteVideo = document.createElement('video');
-                remoteVideo.id = 'remoteVideo';
-                remoteVideo.srcObject = remoteStream;
-                remoteVideo.autoplay = true;
-                remoteVideo.playsInline = true; // iOS için önemli
-                remoteVideo.muted = false; // Uzak sesi duyulabilir yap
-                remoteVideo.controls = true; // Video kontrollerini ekle
-                remoteVideo.classList.add('remote-video');
-                remoteVideo.style.width = '100%';
-                remoteVideo.style.height = '100%';
-                remoteVideo.style.backgroundColor = '#000';
-                remoteVideo.style.objectFit = 'contain';
-                
-                // Video playback özellikleri
-                remoteVideo.volume = 1.0; // Ses seviyesini maksimuma çıkar
-                
-                // Tarayıcı uyumluluğu için ek özellikler
-                remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.setAttribute('webkit-playsinline', '');
-                
-                // Video olaylarını dinle
-                remoteVideo.onloadedmetadata = () => {
-                    webRTCLog('Video meta verileri yüklendi, oynatma başlıyor');
-                    // Video yüklendikten sonra oynatmayı dene
-                    remoteVideo.play().then(() => {
-                        webRTCLog('Video oynatma başladı');
-                        showNotification('Ekran paylaşımı görüntüleniyor');
-                    }).catch(e => {
-                        webRTCLog('Video oynatma hatası:', e);
-                        showNotification('Video oynatılamıyor: ' + e.message);
-                        
-                        // Bazı tarayıcılar otomatik oynatmaya izin vermez, kullanıcıya bildir
-                        if (e.name === 'NotAllowedError') {
-                            showNotification('Tarayıcı otomatik oynatmaya izin vermiyor, lütfen video üzerine tıklayın');
-                        }
-                    });
-                };
-                
-                remoteVideo.onplay = () => webRTCLog('Uzak video oynatılmaya başladı');
-                remoteVideo.onpause = () => webRTCLog('Uzak video duraklatıldı');
-                remoteVideo.onerror = (e) => {
-                    webRTCLog('Uzak video oynatma hatası:', e);
-                    showNotification('Video oynatma hatası: ' + (e.message || 'Bilinmeyen hata'));
-                };
-                
-                // Videoyu container'a ekle
-                videoContainer.innerHTML = ''; // İçeriği tamamen temizle
-                videoContainer.appendChild(remoteVideo);
-                
-                webRTCLog('Yeni uzak video elementi oluşturuldu ve eklendi');
-                showNotification('Ekran paylaşımı hazırlanıyor...');
-                
-            } catch (e) {
-                webRTCLog('Uzak video oluşturulurken hata:', e);
-                showNotification('Video gösterme hatası: ' + e.message);
-                
-                // Hata durumunda kullanıcıya gösterilen video container'ını sıfırla
-                videoContainer.innerHTML = `
-                    <div class="video-error">
-                        <p>Ekran paylaşımı görüntülenemiyor. Hata: ${e.message}</p>
-                        <button id="retryConnection" class="btn primary">Yeniden Bağlan</button>
-                    </div>
-                `;
-                
-                // Yeniden bağlanma butonu için event listener
-                const retryButton = document.getElementById('retryConnection');
-                if (retryButton) {
-                    retryButton.addEventListener('click', () => {
-                        showNotification('Bağlantı yeniden kuruluyor...');
-                        // Peer bağlantısını yeniden oluştur
-                        if (peerConnection) {
-                            peerConnection.close();
-                            peerConnection = null;
-                        }
-                        createPeerConnection();
-                        
-                        // Ekran paylaşımı yapan kullanıcıya yeniden teklif gönder
-                        if (currentRoom) {
-                            socket.emit('checkActiveScreenShare', currentRoom);
-                        }
-                    });
-                }
-            }
+            // Video elementini doğrudan oluştur ve akışı ekle
+            createRemoteVideoElement(remoteStream);
         };
         
         webRTCLog('Peer bağlantısı başarıyla oluşturuldu');
@@ -1153,6 +1071,181 @@ function createPeerConnection() {
         webRTCLog('Peer bağlantısı oluşturulurken hata:', error);
         showNotification('Bağlantı kurulamadı: ' + error.message);
         return false;
+    }
+}
+
+// Uzak video elementini oluştur ve görüntüle
+function createRemoteVideoElement(stream) {
+    try {
+        const videoContainer = document.getElementById('videoContainer');
+        if (!videoContainer) {
+            webRTCLog('Hata: Video container elementi bulunamadı');
+            showNotification('Video gösterilemiyor: Container elementi bulunamadı');
+            return;
+        }
+        
+        // Container içeriğini temizle
+        videoContainer.innerHTML = '';
+        
+        // Yeni video elementi oluştur
+        const remoteVideo = document.createElement('video');
+        remoteVideo.id = 'remoteVideo';
+        remoteVideo.srcObject = stream;
+        remoteVideo.autoplay = true;
+        remoteVideo.playsInline = true;
+        remoteVideo.muted = false;
+        remoteVideo.controls = true;
+        remoteVideo.classList.add('remote-video');
+        remoteVideo.style.width = '100%';
+        remoteVideo.style.height = '100%';
+        remoteVideo.style.backgroundColor = '#000';
+        remoteVideo.style.objectFit = 'contain';
+        
+        // Video playback özellikleri
+        remoteVideo.volume = 1.0;
+        
+        // Tarayıcı uyumluluğu için ek özellikler
+        remoteVideo.setAttribute('playsinline', '');
+        remoteVideo.setAttribute('webkit-playsinline', '');
+        
+        // Video olaylarını dinle
+        remoteVideo.onloadedmetadata = () => {
+            webRTCLog('Video meta verileri yüklendi, oynatma başlıyor');
+            // Video yüklendikten sonra oynatmayı dene
+            remoteVideo.play().then(() => {
+                webRTCLog('Video oynatma başladı');
+                showNotification('Ekran paylaşımı görüntüleniyor');
+            }).catch(e => {
+                webRTCLog('Video oynatma hatası:', e);
+                showNotification('Video oynatılamıyor: ' + e.message);
+                
+                // Bazı tarayıcılar otomatik oynatmaya izin vermez, kullanıcıya bildir
+                if (e.name === 'NotAllowedError') {
+                    showNotification('Tarayıcı otomatik oynatmaya izin vermiyor, lütfen video üzerine tıklayın');
+                    
+                    // Video üzerine tıklama yönergesi ekle
+                    const clickToPlay = document.createElement('div');
+                    clickToPlay.className = 'click-to-play';
+                    clickToPlay.innerHTML = '<p>Oynatmak için tıklayın</p>';
+                    clickToPlay.addEventListener('click', () => {
+                        remoteVideo.play();
+                        clickToPlay.remove();
+                    });
+                    videoContainer.appendChild(clickToPlay);
+                }
+            });
+        };
+        
+        remoteVideo.onplay = () => webRTCLog('Uzak video oynatılmaya başladı');
+        remoteVideo.onpause = () => webRTCLog('Uzak video duraklatıldı');
+        remoteVideo.onerror = (e) => {
+            webRTCLog('Uzak video oynatma hatası:', e);
+            showNotification('Video oynatma hatası: ' + (e.message || 'Bilinmeyen hata'));
+        };
+        
+        // Videoyu container'a ekle
+        videoContainer.appendChild(remoteVideo);
+        
+        webRTCLog('Yeni uzak video elementi oluşturuldu ve eklendi');
+        
+    } catch (e) {
+        webRTCLog('Uzak video oluşturulurken hata:', e);
+        showNotification('Video gösterme hatası: ' + e.message);
+        
+        // Hata durumunda yeniden bağlanma seçeneği sun
+        showRetryButton();
+    }
+}
+
+// Ekran paylaşımını temizle
+function cleanupScreenShare() {
+    webRTCLog('Ekran paylaşımı temizleniyor...');
+    
+    // Uzak akışı durdur
+    if (remoteStream) {
+        try {
+            remoteStream.getTracks().forEach(track => {
+                track.stop();
+                webRTCLog('Uzak iz durduruldu:', track.kind);
+            });
+            remoteStream = null;
+        } catch (e) {
+            webRTCLog('Uzak akış durdurulurken hata:', e);
+        }
+    }
+    
+    // Vidyo elementlerini temizle
+    const videoContainer = document.getElementById('videoContainer');
+    if (videoContainer) {
+        try {
+            // Tüm video elementlerini bul ve temizle
+            const videos = videoContainer.querySelectorAll('video');
+            videos.forEach(video => {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+                video.remove();
+                webRTCLog('Video elementi temizlendi');
+            });
+        } catch (e) {
+            webRTCLog('Video elementleri temizlenirken hata:', e);
+        }
+    }
+    
+    // Peer bağlantısını kapat
+    if (peerConnection) {
+        webRTCLog('Peer bağlantısı kapatılıyor');
+        try {
+            // Gönderilenleri temizle
+            const senders = peerConnection.getSenders();
+            senders.forEach(sender => {
+                try {
+                    peerConnection.removeTrack(sender);
+                } catch (e) {
+                    webRTCLog('Sender temizlenirken hata:', e);
+                }
+            });
+            
+            // Bağlantıyı kapat
+            peerConnection.close();
+            peerConnection = null;
+            webRTCLog('Peer bağlantısı kapatıldı');
+        } catch (e) {
+            webRTCLog('Peer bağlantısı kapatılırken hata:', e);
+        }
+    }
+    
+    webRTCLog('Ekran paylaşımı temizleme tamamlandı');
+}
+
+// Yeniden bağlanma butonu göster
+function showRetryButton() {
+    const videoContainer = document.getElementById('videoContainer');
+    if (videoContainer) {
+        videoContainer.innerHTML = `
+            <div class="video-error">
+                <p>Ekran paylaşımı görüntülenemiyor</p>
+                <button id="retryConnection" class="btn primary">Yeniden Bağlan</button>
+            </div>
+        `;
+        
+        // Yeniden bağlanma butonu için event listener
+        const retryButton = document.getElementById('retryConnection');
+        if (retryButton) {
+            retryButton.addEventListener('click', () => {
+                showNotification('Bağlantı yeniden kuruluyor...');
+                
+                // Bağlantıyı temizle ve yeniden oluştur
+                cleanupScreenShare();
+                createPeerConnection();
+                
+                // Aktif ekran paylaşımı kontrolü
+                if (currentRoom) {
+                    socket.emit('checkActiveScreenShare', currentRoom);
+                }
+            });
+        }
     }
 }
 
