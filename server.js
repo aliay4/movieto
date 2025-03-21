@@ -178,10 +178,47 @@ io.on('connection', (socket) => {
         }
     });
     
-    // Aktif ekran paylaşımı kontrolü
-    socket.on('checkActiveScreenShare', (roomId) => {
-        if (rooms[roomId] && rooms[roomId].activeScreenShare) {
-            socket.emit('activeScreenShare', rooms[roomId].activeScreenShare);
+    // WebRTC sinyallerini ilet
+    socket.on('webrtcSignal', (data) => {
+        const roomId = data.roomId;
+        if (rooms[roomId]) {
+            // 'requestOffer' olayı - ekran paylaşımı yapan kullanıcıya diğer kullanıcılardan teklif istemesi için
+            if (data.type === 'requestOffer') {
+                console.log('requestOffer sinyali alındı, odadaki diğer kullanıcılara bildiriliyor');
+                
+                // Odadaki diğer tüm kullanıcılara teklif oluşturma talebi gönder
+                const sharingUser = socket.id;
+                rooms[roomId].users.forEach(userId => {
+                    if (userId !== sharingUser) {
+                        console.log('Kullanıcıya teklif isteği gönderiliyor:', userId);
+                        io.to(userId).emit('webrtcSignal', {
+                            type: 'offerRequest',
+                            roomId: roomId,
+                            fromUserId: sharingUser
+                        });
+                    }
+                });
+                return;
+            }
+            
+            // Sinyali odadaki diğer kullanıcılara ilet
+            if (data.targetUserId) {
+                // Belirli bir kullanıcıya sinyal gönder
+                console.log(`WebRTC sinyali iletiliyor: ${data.type} - Gönderen: ${socket.id}, Hedef: ${data.targetUserId}`);
+                io.to(data.targetUserId).emit('webrtcSignal', {
+                    ...data,
+                    fromUserId: socket.id
+                });
+            } else {
+                // Odadaki tüm diğer kullanıcılara sinyal gönder
+                console.log(`WebRTC sinyali odadaki herkese iletiliyor: ${data.type} - Gönderen: ${socket.id}`);
+                socket.to(roomId).emit('webrtcSignal', {
+                    ...data,
+                    fromUserId: socket.id
+                });
+            }
+        } else {
+            console.log('Oda bulunamadı, sinyal iletilemiyor:', roomId);
         }
     });
     
@@ -189,10 +226,14 @@ io.on('connection', (socket) => {
     socket.on('setActiveScreenShare', (data) => {
         const roomId = data.roomId;
         if (rooms[roomId]) {
+            console.log('Ekran paylaşımı durumu güncelleniyor. Oda:', roomId, 'Kullanıcı:', socket.id, 'Durum:', data.active);
+            
             if (data.active) {
                 rooms[roomId].activeScreenShare = socket.id;
+                console.log('Aktif ekran paylaşımı ayarlandı:', socket.id);
             } else if (rooms[roomId].activeScreenShare === socket.id) {
                 rooms[roomId].activeScreenShare = null;
+                console.log('Aktif ekran paylaşımı kaldırıldı');
             }
             
             // Odadaki diğer kullanıcılara bildir
@@ -200,27 +241,35 @@ io.on('connection', (socket) => {
                 active: data.active,
                 userId: data.active ? socket.id : null
             });
+            
+            // Onaylama mesajı gönder
+            socket.emit('activeScreenShareSet', {
+                success: true,
+                userId: socket.id,
+                active: data.active
+            });
+        } else {
+            console.log('Oda bulunamadı, ekran paylaşımı ayarlanamıyor:', roomId);
+            // Hata mesajı gönder
+            socket.emit('activeScreenShareSet', {
+                success: false,
+                error: 'Oda bulunamadı'
+            });
         }
     });
     
-    // WebRTC sinyallerini ilet
-    socket.on('webrtcSignal', (data) => {
-        const roomId = data.roomId;
+    // Aktif ekran paylaşımı kontrolü
+    socket.on('checkActiveScreenShare', (roomId) => {
+        console.log('Aktif ekran paylaşımı kontrolü yapılıyor. Oda:', roomId);
         if (rooms[roomId]) {
-            // Sinyali odadaki diğer kullanıcılara ilet
-            if (data.targetUserId) {
-                // Belirli bir kullanıcıya sinyal gönder
-                io.to(data.targetUserId).emit('webrtcSignal', {
-                    ...data,
-                    fromUserId: socket.id
-                });
+            if (rooms[roomId].activeScreenShare) {
+                console.log('Odada aktif ekran paylaşımı var:', rooms[roomId].activeScreenShare);
+                socket.emit('activeScreenShare', rooms[roomId].activeScreenShare);
             } else {
-                // Odadaki tüm diğer kullanıcılara sinyal gönder
-                socket.to(roomId).emit('webrtcSignal', {
-                    ...data,
-                    fromUserId: socket.id
-                });
+                console.log('Odada aktif ekran paylaşımı yok');
             }
+        } else {
+            console.log('Oda bulunamadı, ekran paylaşımı kontrol edilemiyor:', roomId);
         }
     });
     
