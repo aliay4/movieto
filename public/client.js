@@ -785,47 +785,95 @@ async function startScreenShare() {
         const mediaConstraints = {
             video: {
                 cursor: 'always',
-                displaySurface: 'monitor'
-            },
-            // Ses paylaşmak bazı sistemlerde sorunlara neden olabiliyor
-            // Kullanıcıya sistemin izin verdiği kadar seçenek sunar
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
+                displaySurface: 'monitor',
+                // Video kalitesini belirle - çok yüksek değerler performans sorunlarına neden olabilir
+                width: { ideal: 1920, max: 1920 },
+                height: { ideal: 1080, max: 1080 },
+                frameRate: { ideal: 30, max: 30 }
             }
         };
         
-        webRTCLog('Medya akışı isteniyor...');
+        // Önce sadece video ile deneyelim, ses isteğe bağlı eklenecek
+        webRTCLog('Ekran paylaşımı medya akışı isteniyor (önce video)...');
         try {
             localStream = await navigator.mediaDevices.getDisplayMedia(mediaConstraints);
-        } catch (err) {
-            // Eğer ses paylaşımıyla sorun çıkarsa, sadece video deneyelim
-            if (err.name === "NotFoundError" || err.name === "NotAllowedError") {
-                webRTCLog('Ses paylaşımında sorun, sadece video ile deneniyor...');
-                mediaConstraints.audio = false;
-                localStream = await navigator.mediaDevices.getDisplayMedia(mediaConstraints);
-            } else {
-                throw err;
+            webRTCLog('Ekran paylaşımı akışı alındı (video)');
+            
+            // Ses eklemek isteyip istemediğini sor
+            const addAudio = confirm('Ekran paylaşımına ses de eklemek istiyor musunuz?');
+            
+            if (addAudio) {
+                try {
+                    // Ses için ayrı bir akış al ve ekran paylaşımına ekle
+                    webRTCLog('Ses akışı isteniyor...');
+                    const audioStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    
+                    // Ses izlerini ekran paylaşımına ekle
+                    const audioTrack = audioStream.getAudioTracks()[0];
+                    if (audioTrack) {
+                        webRTCLog('Ses izi ekleniyor:', audioTrack.label);
+                        localStream.addTrack(audioTrack);
+                    }
+                } catch (audioErr) {
+                    webRTCLog('Ses akışı alınamadı:', audioErr);
+                    showNotification('Ses eklenemedi, sadece video paylaşılacak');
+                }
             }
+        } catch (err) {
+            webRTCLog('Ekran paylaşımı akışı alınamadı:', err);
+            showNotification('Ekran paylaşımı başlatılamadı: ' + err.message);
+            return false;
         }
         
-        webRTCLog('Medya akışı alındı:', localStream);
-        webRTCLog('Video izleri:', localStream.getVideoTracks().length);
-        webRTCLog('Ses izleri:', localStream.getAudioTracks().length);
+        // Akış içeriğini kontrol et
+        webRTCLog('Medya akışı alındı:', localStream.id);
+        webRTCLog('Video izleri:', localStream.getVideoTracks().length, 
+                  'Aktif:', localStream.getVideoTracks()[0]?.enabled || false);
+        webRTCLog('Ses izleri:', localStream.getAudioTracks().length,
+                  'Aktif:', localStream.getAudioTracks()[0]?.enabled || false);
         
         // Video elementini oluştur ve akışı bağla
+        const videoContainer = document.getElementById('videoContainer');
+        videoContainer.innerHTML = ''; // İçeriği temizle
+        
         const localVideo = document.createElement('video');
-        localVideo.srcObject = localStream;
         localVideo.autoplay = true;
         localVideo.muted = true; // Yerel sesi sustur, yankıyı önler
-        localVideo.controls = true; // Kontroller ekle
+        localVideo.playsInline = true;
+        localVideo.controls = true;
         localVideo.classList.add('screen-share-video');
         
-        // Mevcut video içeriğini temizle ve ekran paylaşımını ekle
-        const videoContainer = document.getElementById('videoContainer');
-        videoContainer.innerHTML = '';
+        // Önce DOM'a ekle, sonra srcObject ayarla
         videoContainer.appendChild(localVideo);
+        localVideo.srcObject = localStream;
+        
+        // Ekran paylaşımı bittiğinde dinle
+        localStream.getVideoTracks()[0].onended = () => {
+            webRTCLog('Ekran paylaşımı kullanıcı tarafından sonlandırıldı');
+            stopScreenShare();
+        };
+        
+        // WebRTC bağlantısını oluştur ve akışı ekle
+        if (!createPeerConnection()) {
+            throw new Error('Peer bağlantısı oluşturulamadı');
+        }
+        
+        // Yerel medya akışını peer bağlantısına ekle
+        webRTCLog('Yerel medya akışı peer bağlantısına ekleniyor...');
+        localStream.getTracks().forEach(track => {
+            try {
+                const sender = peerConnection.addTrack(track, localStream);
+                webRTCLog('İz eklendi:', track.kind, track.label, 'Aktif:', track.enabled);
+            } catch (e) {
+                webRTCLog('İz eklenirken hata:', e);
+            }
+        });
         
         // Odadaki diğer kullanıcılara sinyal gönder
         if (currentRoom) {
@@ -846,24 +894,6 @@ async function startScreenShare() {
         } else {
             showNotification('Ekran paylaşımı başlatıldı, ancak oda bulunamadı');
         }
-        
-        // WebRTC bağlantısını başlat
-        if (!createPeerConnection()) {
-            throw new Error('Peer bağlantısı oluşturulamadı');
-        }
-        
-        // Yerel medya akışını peer bağlantısına ekle
-        webRTCLog('Yerel medya akışı peer bağlantısına ekleniyor...');
-        localStream.getTracks().forEach(track => {
-            const sender = peerConnection.addTrack(track, localStream);
-            webRTCLog('Track eklendi:', track.kind, track.label, track.id);
-        });
-        
-        // Ekran paylaşımı bittiğinde
-        localStream.getVideoTracks()[0].onended = () => {
-            webRTCLog('Ekran paylaşımı kullanıcı tarafından sonlandırıldı');
-            stopScreenShare();
-        };
         
         return true;
     } catch (error) {
@@ -1093,15 +1123,29 @@ function createPeerConnection() {
                 return;
             }
             
+            // Akış detaylarını logla ve mevcut remoteStream'i güncelle
             remoteStream = event.streams[0];
-            
-            // Akışı detaylarını logla
             webRTCLog('Akış ID:', remoteStream.id);
             webRTCLog('Video izleri:', remoteStream.getVideoTracks().length);
             webRTCLog('Ses izleri:', remoteStream.getAudioTracks().length);
             
-            // Video elementini doğrudan oluştur ve akışı ekle
-            createRemoteVideoElement(remoteStream);
+            // Kullanıcıya bildirim göster
+            showNotification('Ekran paylaşımı alınıyor, video oluşturuluyor...');
+            
+            // Video elementini oluşturmadan önce akışın hazır olduğundan emin olalım
+            const videoTrack = remoteStream.getVideoTracks()[0];
+            if (videoTrack) {
+                webRTCLog('Video izi bulundu:', videoTrack.label, 'Aktif mi:', videoTrack.enabled);
+                
+                // Bazı tarayıcıların ek süreye ihtiyacı var - çok kısa bir gecikme ekleyelim
+                setTimeout(() => {
+                    createRemoteVideoElement(remoteStream);
+                }, 200);
+            } else {
+                webRTCLog('Hata: Video izi bulunamadı');
+                showNotification('Ekran paylaşımı video izi bulunamadı');
+                showRetryButton();
+            }
         };
         
         webRTCLog('Peer bağlantısı başarıyla oluşturuldu');
@@ -1165,23 +1209,54 @@ function createRemoteVideoElement(stream) {
             </div>
         `;
         
-        // Kısa bir gecikme ekle (tarayıcı render sürecine yardımcı olur)
+        // Önce akışın durumunu kontrol et
+        const videoTracks = stream.getVideoTracks();
+        if (!videoTracks || videoTracks.length === 0) {
+            webRTCLog('Hata: Video izleri bulunamadı');
+            showNotification('Video izleri bulunamadı, yeniden bağlanılıyor...');
+            
+            setTimeout(() => {
+                if (currentRoom) {
+                    socket.emit('checkActiveScreenShare', currentRoom);
+                }
+            }, 2000);
+            return;
+        }
+        
+        // Video izinin durumunu kontrol et
+        const videoTrack = videoTracks[0];
+        webRTCLog('Video izi durumu:', videoTrack.readyState, 'Etkin:', videoTrack.enabled);
+        
+        // Video izi aktif değilse yeniden bağlanmayı dene
+        if (videoTrack.readyState === 'ended') {
+            webRTCLog('Video izi sonlandırılmış, yeniden bağlanılıyor...');
+            showNotification('Video bağlantısı kesildi, yeniden bağlanılıyor...');
+            
+            setTimeout(() => {
+                cleanupScreenShare();
+                if (currentRoom) {
+                    socket.emit('checkActiveScreenShare', currentRoom);
+                }
+            }, 1000);
+            return;
+        }
+        
+        // 500ms gecikme ekleyerek tarayıcının akışı hazırlamasına zaman tanı
         setTimeout(() => {
             try {
-                // Container içeriğini temizle ve yeni video elementi oluştur
+                // Container içeriğini temizle
                 videoContainer.innerHTML = '';
                 
-                // Yeni video elementi oluştur
+                // Yeni video elementi oluştur - srcObject kullanmadan önce DOM'a ekle
                 const remoteVideo = document.createElement('video');
                 remoteVideo.id = 'remoteVideo';
-                remoteVideo.srcObject = stream;
                 remoteVideo.autoplay = true;
                 remoteVideo.playsInline = true;
                 remoteVideo.muted = false;
                 remoteVideo.controls = true;
                 remoteVideo.classList.add('remote-video');
                 
-                // Video CSS stil özelliklerini ekle
+                // CSS stillerini ekle
                 Object.assign(remoteVideo.style, {
                     width: '100%',
                     height: '100%',
@@ -1189,8 +1264,11 @@ function createRemoteVideoElement(stream) {
                     objectFit: 'contain'
                 });
                 
-                // Video playback özellikleri
-                remoteVideo.volume = 1.0;
+                // Önce DOM'a ekle
+                videoContainer.appendChild(remoteVideo);
+                
+                // Sonra akışı ayarla
+                remoteVideo.srcObject = stream;
                 
                 // Tarayıcı uyumluluğu için ek özellikler
                 remoteVideo.setAttribute('playsinline', '');
@@ -1198,43 +1276,45 @@ function createRemoteVideoElement(stream) {
                 
                 // Video olaylarını dinle
                 remoteVideo.onloadedmetadata = () => {
-                    webRTCLog('Video meta verileri yüklendi, oynatma başlıyor');
-                    // Video yüklendikten sonra oynatmayı dene
-                    const playPromise = remoteVideo.play();
+                    webRTCLog('Video meta verileri yüklendi:', 
+                        `Boyut: ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
                     
-                    if (playPromise !== undefined) {
-                        playPromise.then(() => {
-                            webRTCLog('Video oynatma başladı');
+                    // Video yüklendikten sonra oynatmayı dene
+                    remoteVideo.play()
+                        .then(() => {
+                            webRTCLog('Video oynatma başarılı');
                             showNotification('Ekran paylaşımı görüntüleniyor');
-                        }).catch(e => {
-                            webRTCLog('Video otomatik oynatma başarısız:', e);
+                        })
+                        .catch(e => {
+                            webRTCLog('Video oynatma hatası:', e.name, e.message);
                             handleVideoPlayError(e, remoteVideo, videoContainer);
                         });
-                    }
                 };
                 
                 // Ek video olayları
-                remoteVideo.onplay = () => webRTCLog('Uzak video oynatılmaya başladı');
-                remoteVideo.onpause = () => webRTCLog('Uzak video duraklatıldı');
+                remoteVideo.oncanplay = () => webRTCLog('Video oynatılabilir');
+                remoteVideo.onplay = () => webRTCLog('Video oynatılmaya başladı');
+                remoteVideo.onplaying = () => {
+                    webRTCLog('Video oynatılıyor');
+                    showNotification('Ekran paylaşımı aktif');
+                };
+                remoteVideo.onpause = () => webRTCLog('Video duraklatıldı');
                 remoteVideo.onstalled = () => webRTCLog('Video aktarımı duraklatıldı'); 
                 remoteVideo.onwaiting = () => webRTCLog('Video oynatımı için veri bekleniyor');
                 
                 // Video hata olayı
                 remoteVideo.onerror = (e) => {
-                    webRTCLog('Uzak video oynatma hatası:', e);
+                    webRTCLog('Video oynatma hatası:', e);
                     handleVideoPlayError(e, remoteVideo, videoContainer);
                 };
                 
-                // Videoyu container'a ekle
-                videoContainer.appendChild(remoteVideo);
-                
-                webRTCLog('Yeni uzak video elementi oluşturuldu ve eklendi');
+                webRTCLog('Uzak video elementi başarıyla oluşturuldu');
             } catch (e) {
                 webRTCLog('Video elementi oluşturulurken iç hata:', e);
                 showNotification('Video gösterme hatası: ' + e.message);
                 showRetryButton();
             }
-        }, 500); // Yükleme ekranını kısa süre göster
+        }, 500);
     } catch (e) {
         webRTCLog('Uzak video oluşturulurken ana hata:', e);
         showNotification('Video gösterme hatası: ' + e.message);
