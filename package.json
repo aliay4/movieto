@@ -1,0 +1,13 @@
+{
+  "name": "movie-2",
+  "version": "1.0.0",
+  "description": "Senkronize YouTube izleme platformu",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}

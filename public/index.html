@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senkronize YouTube İzleme</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Kullanıcı Adı Modal -->
+    <div id="usernameModal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-user"></i> Hoş Geldiniz</h2>
+            <p>Sohbete katılmak için lütfen bir kullanıcı adı girin:</p>
+            <div class="input-group">
+                <i class="fas fa-user"></i>
+                <input type="text" id="usernameInput" placeholder="Kullanıcı Adı" maxlength="20">
+            </div>
+            <button id="usernameSubmit" class="btn primary">
+                <i class="fas fa-sign-in-alt"></i>
+                Giriş Yap
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="app-header">
+            <h1><i class="fab fa-youtube"></i> Senkronize YouTube İzleme</h1>
+        </div>
+
+        <div class="main-content">
+            <!-- Sol Panel: Oda Yönetimi -->
+            <div class="side-panel">
+                <div class="room-info">
+                    <div id="roomDisplay" class="room-display">
+                        <i class="fas fa-door-closed"></i>
+                        <span>Henüz bir odada değilsiniz</span>
+                    </div>
+                </div>
+
+                <div class="room-controls">
+                    <button id="createRoom" class="btn primary">
+                        <i class="fas fa-plus-circle"></i>
+                        Oda Oluştur
+                    </button>
+                    
+                    <div class="join-room">
+                        <div class="input-group">
+                            <i class="fas fa-key"></i>
+                            <input type="text" id="roomId" placeholder="Oda Kodu">
+                        </div>
+                        <button id="joinRoom" class="btn secondary">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Odaya Katıl
+                        </button>
+                    </div>
+
+                    <div class="video-controls">
+                        <div class="input-group">
+                            <i class="fab fa-youtube"></i>
+                            <input type="text" id="videoUrl" placeholder="YouTube Video URL'si">
+                        </div>
+                        <button id="setVideoButton" class="btn primary">
+                            <i class="fas fa-play-circle"></i>
+                            Videoyu Ayarla
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orta Panel: Video -->
+            <div class="content-panel">
+                <div id="videoContainer" class="video-container">
+                    <div class="video-placeholder">
+                        <i class="fab fa-youtube"></i>
+                        <p>Video yüklemek için önce bir odaya katılın ve YouTube URL'si girin</p>
+                    </div>
+                </div>
+
+                <div class="playback-controls">
+                    <div class="control-buttons">
+                        <button id="playButton" class="btn control">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button id="pauseButton" class="btn control">
+                            <i class="fas fa-pause"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="time-control">
+                        <span id="currentTime">00:00</span>
+                        <input type="range" id="timeSlider" min="0" max="100" value="0">
+                        <span id="totalTime">00:00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sağ Panel: Sohbet -->
+            <div class="chat-panel">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <i class="fas fa-comments"></i>
+                        <span>Sohbet</span>
+                    </div>
+                    <div id="chatMessages" class="chat-messages"></div>
+                    <div class="chat-input">
+                        <div class="input-group">
+                            <i class="fas fa-comment"></i>
+                            <input type="text" id="messageInput" placeholder="Mesajınızı yazın...">
+                        </div>
+                        <button id="sendMessage" class="btn primary">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

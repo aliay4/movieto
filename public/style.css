@@ -1,0 +1,367 @@
+/* Genel Stiller */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #f0f2f5;
+    color: #1a1a1a;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Başlık */
+.app-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.app-header h1 {
+    font-size: 2.5em;
+    color: #ff0000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 400px;
+}
+
+.modal-content h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    color: #1a1a1a;
+}
+
+.modal-content p {
+    margin-bottom: 20px;
+    color: #666;
+}
+
+/* Ana İçerik Düzeni */
+.main-content {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 30px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+/* Sol Panel */
+.side-panel {
+    padding: 20px;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.room-info {
+    margin-bottom: 10px;
+}
+
+.room-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* Sohbet Alanı */
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-weight: 500;
+}
+
+.chat-messages {
+    flex: 1;
+    min-height: 300px;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chat-message {
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 80%;
+    word-break: break-word;
+}
+
+.chat-message.sent {
+    background: #1a73e8;
+    color: white;
+    align-self: flex-end;
+}
+
+.chat-message.received {
+    background: #e0e0e0;
+    color: #1a1a1a;
+    align-self: flex-start;
+}
+
+.chat-message .username {
+    font-size: 0.8em;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input .input-group {
+    flex: 1;
+}
+
+/* Sağ Panel */
+.content-panel {
+    padding: 20px;
+}
+
+/* Video Konteyner */
+.video-container {
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    background-color: #000;
+    overflow: hidden;
+}
+
+.video-container video,
+.video-container iframe,
+.video-container .video-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.video-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    gap: 20px;
+}
+
+.video-placeholder i {
+    font-size: 4em;
+    color: #ff0000;
+}
+
+/* Butonlar ve Inputlar */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn.primary {
+    background: #ff0000;
+    color: white;
+}
+
+.btn.secondary {
+    background: #1a73e8;
+    color: white;
+}
+
+.btn.control {
+    background: transparent;
+    color: #666;
+    padding: 10px;
+}
+
+.btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.input-group i {
+    color: #666;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    font-size: 1em;
+    outline: none;
+}
+
+/* Oynatma Kontrolleri */
+.playback-controls {
+    margin-top: 20px;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.time-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+input[type="range"] {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #e0e0e0;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #ff0000;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+/* Oda Kontrolleri */
+.room-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.join-room {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Bildirimler */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    background: #333;
+    color: white;
+    border-radius: 8px;
+    animation: slideIn 0.3s ease-out;
+    z-index: 1000;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Responsive Tasarım */
+@media (max-width: 900px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .side-panel {
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+    }
+}
+
+/* Ekran paylaşımı video stili */
+.screen-share-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background-color: #000;
+}
