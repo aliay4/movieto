@@ -1,14 +1,31 @@
 // Socket.io bağlantısı
 const socket = io({
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 10,
     reconnectionDelay: 1000,
-    timeout: 20000
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
+    transports: ['websocket', 'polling'],
+    forceNew: false,
+    // Transport hatası olursa yeniden bağlanma stratejisi
+    upgrade: true
 });
 
 // Socket.io bağlantı durumunu takip et
 socket.on('connect', () => {
     webRTCLog('Socket.IO bağlantısı kuruldu');
     showNotification('Sunucuya bağlanıldı');
+    
+    // Bağlantı yeniden kurulduğunda, eğer bir odada ise tekrar katıl
+    if (currentRoom) {
+        webRTCLog('Odaya yeniden katılma deneniyor:', currentRoom);
+        // Doğrudan joinRoom olayını kullan
+        socket.emit('joinRoom', currentRoom);
+        
+        // Ekran paylaşımı kontrolü
+        setTimeout(() => {
+            socket.emit('checkActiveScreenShare', currentRoom);
+        }, 1000); // Odaya katıldıktan sonra kontrol et
+    }
 });
 
 socket.on('connect_error', (error) => {
@@ -16,9 +33,43 @@ socket.on('connect_error', (error) => {
     showNotification('Sunucuya bağlanılamadı: Lütfen sayfayı yenileyin');
 });
 
+socket.on('reconnect', (attemptNumber) => {
+    webRTCLog('Socket.IO yeniden bağlandı, deneme:', attemptNumber);
+    showNotification('Sunucu bağlantısı yeniden kuruldu');
+});
+
+socket.on('reconnect_attempt', (attemptNumber) => {
+    webRTCLog('Socket.IO yeniden bağlanmaya çalışıyor, deneme:', attemptNumber);
+    // Polling daha güvenilir bir transport metodu olabilir
+    socket.io.opts.transports = ['polling', 'websocket'];
+});
+
+socket.on('reconnect_error', (error) => {
+    webRTCLog('Socket.IO yeniden bağlantı hatası:', error);
+    showNotification('Sunucu bağlantısı yeniden kurulamadı');
+});
+
+socket.on('reconnect_failed', () => {
+    webRTCLog('Socket.IO yeniden bağlantı başarısız oldu');
+    showNotification('Sunucu bağlantısı yeniden kurulamadı: Sayfayı yenileyin');
+});
+
 socket.on('disconnect', (reason) => {
     webRTCLog('Socket.IO bağlantısı kesildi:', reason);
-    showNotification('Sunucu bağlantısı kesildi: Lütfen sayfayı yenileyin');
+    showNotification('Sunucu bağlantısı kesildi: Otomatik yeniden bağlanıyor...');
+    
+    // Transport kapandığında client yeniden bağlanmayabilir
+    if (reason === 'transport close' || reason === 'transport error') {
+        webRTCLog('Transport hatası, manuel yeniden bağlanma denenecek');
+        
+        // 3 saniye sonra manuel olarak yeniden bağlanmayı dene
+        setTimeout(() => {
+            if (!socket.connected) {
+                webRTCLog('Manuel yeniden bağlanma deneniyor...');
+                socket.connect();
+            }
+        }, 3000);
+    }
 });
 
 // Global değişkenler
@@ -446,6 +497,7 @@ socket.on('screenShareStatusChanged', (data) => {
             
             // Eğer YouTube videosu varsa geri yükle
             if (currentRoom && rooms[currentRoom] && rooms[currentRoom].currentVideo) {
+                webRTCLog('YouTube videosu geri yükleniyor');
                 loadYouTubeVideo(rooms[currentRoom].currentVideo.videoUrl);
             }
             
@@ -954,42 +1006,144 @@ function createPeerConnection() {
         // Uzak akışı al
         peerConnection.ontrack = event => {
             webRTCLog('Uzak medya akışı alındı:', event.streams[0]);
+            
+            // Akış yoksa hata ver ve çık
+            if (!event.streams || !event.streams[0]) {
+                webRTCLog('Hata: Uzak medya akışı alınamadı veya boş');
+                showNotification('Ekran paylaşımı akışı alınamadı');
+                return;
+            }
+            
             remoteStream = event.streams[0];
+            
+            // Akışı detaylarını logla
+            webRTCLog('Akış ID:', remoteStream.id);
+            webRTCLog('Video izleri:', remoteStream.getVideoTracks().length);
+            webRTCLog('Ses izleri:', remoteStream.getAudioTracks().length);
+            
+            // İz detaylarını logla
+            remoteStream.getTracks().forEach(track => {
+                webRTCLog('İz türü:', track.kind, 'Etkin:', track.enabled, 'ID:', track.id);
+            });
             
             // Video elementini temizle ve yeniden oluştur
             const videoContainer = document.getElementById('videoContainer');
-            const existingRemoteVideos = videoContainer.querySelectorAll('video:not(.screen-share-video)');
-            existingRemoteVideos.forEach(video => video.remove());
+            
+            if (!videoContainer) {
+                webRTCLog('Hata: Video container elementi bulunamadı');
+                showNotification('Video gösterilemiyor: Container elementi bulunamadı');
+                return;
+            }
+            
+            webRTCLog('Video container bulundu, eski videolar temizleniyor');
+            
+            // Varolan videoları temizle
+            const existingVideos = videoContainer.querySelectorAll('video');
+            existingVideos.forEach(video => {
+                try {
+                    // Medya bağlantısını kaldır
+                    if (video.srcObject) {
+                        video.srcObject.getTracks().forEach(track => track.stop());
+                        video.srcObject = null;
+                    }
+                    video.remove();
+                    webRTCLog('Eski video elementleri kaldırıldı');
+                } catch (e) {
+                    webRTCLog('Video elementleri kaldırılırken hata:', e);
+                }
+            });
+            
+            // YouTube player varsa kaldır
+            const youtubePlayer = videoContainer.querySelector('#youtubePlayer');
+            if (youtubePlayer) {
+                youtubePlayer.remove();
+                webRTCLog('YouTube player kaldırıldı');
+            }
             
             try {
+                // Yeni video elementi oluştur
                 const remoteVideo = document.createElement('video');
+                remoteVideo.id = 'remoteVideo';
                 remoteVideo.srcObject = remoteStream;
                 remoteVideo.autoplay = true;
-                remoteVideo.controls = true; // Kontrolleri ekleyelim
+                remoteVideo.playsInline = true; // iOS için önemli
+                remoteVideo.muted = false; // Uzak sesi duyulabilir yap
+                remoteVideo.controls = true; // Video kontrollerini ekle
                 remoteVideo.classList.add('remote-video');
                 remoteVideo.style.width = '100%';
                 remoteVideo.style.height = '100%';
                 remoteVideo.style.backgroundColor = '#000';
+                remoteVideo.style.objectFit = 'contain';
                 
-                // Tarayıcı uyumluluğu için playsinline özelliği ekle
+                // Video playback özellikleri
+                remoteVideo.volume = 1.0; // Ses seviyesini maksimuma çıkar
+                
+                // Tarayıcı uyumluluğu için ek özellikler
                 remoteVideo.setAttribute('playsinline', '');
                 remoteVideo.setAttribute('webkit-playsinline', '');
                 
-                // Video oynatma olaylarını izle
+                // Video olaylarını dinle
+                remoteVideo.onloadedmetadata = () => {
+                    webRTCLog('Video meta verileri yüklendi, oynatma başlıyor');
+                    // Video yüklendikten sonra oynatmayı dene
+                    remoteVideo.play().then(() => {
+                        webRTCLog('Video oynatma başladı');
+                        showNotification('Ekran paylaşımı görüntüleniyor');
+                    }).catch(e => {
+                        webRTCLog('Video oynatma hatası:', e);
+                        showNotification('Video oynatılamıyor: ' + e.message);
+                        
+                        // Bazı tarayıcılar otomatik oynatmaya izin vermez, kullanıcıya bildir
+                        if (e.name === 'NotAllowedError') {
+                            showNotification('Tarayıcı otomatik oynatmaya izin vermiyor, lütfen video üzerine tıklayın');
+                        }
+                    });
+                };
+                
                 remoteVideo.onplay = () => webRTCLog('Uzak video oynatılmaya başladı');
                 remoteVideo.onpause = () => webRTCLog('Uzak video duraklatıldı');
-                remoteVideo.onerror = (e) => webRTCLog('Uzak video oynatma hatası:', e);
+                remoteVideo.onerror = (e) => {
+                    webRTCLog('Uzak video oynatma hatası:', e);
+                    showNotification('Video oynatma hatası: ' + (e.message || 'Bilinmeyen hata'));
+                };
                 
+                // Videoyu container'a ekle
+                videoContainer.innerHTML = ''; // İçeriği tamamen temizle
                 videoContainer.appendChild(remoteVideo);
-                showNotification('Ekran paylaşımı görüntüleniyor');
                 
-                // Akış içeriğini kontrol et
-                webRTCLog('Uzak akış video izleri:', remoteStream.getVideoTracks().length);
-                webRTCLog('Uzak akış ses izleri:', remoteStream.getAudioTracks().length);
+                webRTCLog('Yeni uzak video elementi oluşturuldu ve eklendi');
+                showNotification('Ekran paylaşımı hazırlanıyor...');
                 
             } catch (e) {
                 webRTCLog('Uzak video oluşturulurken hata:', e);
                 showNotification('Video gösterme hatası: ' + e.message);
+                
+                // Hata durumunda kullanıcıya gösterilen video container'ını sıfırla
+                videoContainer.innerHTML = `
+                    <div class="video-error">
+                        <p>Ekran paylaşımı görüntülenemiyor. Hata: ${e.message}</p>
+                        <button id="retryConnection" class="btn primary">Yeniden Bağlan</button>
+                    </div>
+                `;
+                
+                // Yeniden bağlanma butonu için event listener
+                const retryButton = document.getElementById('retryConnection');
+                if (retryButton) {
+                    retryButton.addEventListener('click', () => {
+                        showNotification('Bağlantı yeniden kuruluyor...');
+                        // Peer bağlantısını yeniden oluştur
+                        if (peerConnection) {
+                            peerConnection.close();
+                            peerConnection = null;
+                        }
+                        createPeerConnection();
+                        
+                        // Ekran paylaşımı yapan kullanıcıya yeniden teklif gönder
+                        if (currentRoom) {
+                            socket.emit('checkActiveScreenShare', currentRoom);
+                        }
+                    });
+                }
             }
         };
         
