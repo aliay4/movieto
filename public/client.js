@@ -1890,3 +1890,19 @@ if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
     document.getElementById('shareScreen').disabled = true;
     document.getElementById('shareScreen').title = 'Tarayıcınız ekran paylaşımını desteklemiyor';
 }
+
+// Ayarlar sekmesi için event listener'lar
+document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        // Aktif sekmeyi değiştir
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // İlgili içeriği göster
+        const tabId = tab.getAttribute('data-tab');
+        document.querySelectorAll('.settings-content').forEach(content => {
+            content.style.display = 'none';
+        });
+        document.getElementById(tabId + 'Settings').style.display = 'block';
+    });
+});

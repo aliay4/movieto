@@ -46,38 +46,54 @@
                     </div>
                 </div>
 
-                <div class="room-controls">
-                    <button id="createRoom" class="btn primary">
-                        <i class="fas fa-plus-circle"></i>
-                        Oda Oluştur
-                    </button>
-                    
-                    <div class="join-room">
-                        <div class="input-group">
-                            <i class="fas fa-key"></i>
-                            <input type="text" id="roomId" placeholder="Oda Kodu">
-                        </div>
-                        <button id="joinRoom" class="btn secondary">
-                            <i class="fas fa-sign-in-alt"></i>
-                            Odaya Katıl
-                        </button>
+                <!-- Ayarlar Sekmesi -->
+                <div class="settings-section">
+                    <div class="settings-tabs">
+                        <div class="settings-tab active" data-tab="room">Oda</div>
+                        <div class="settings-tab" data-tab="video">Video</div>
+                        <div class="settings-tab" data-tab="screen">Ekran</div>
                     </div>
 
-                    <div class="video-controls">
-                        <div class="input-group">
-                            <i class="fab fa-youtube"></i>
-                            <input type="text" id="videoUrl" placeholder="YouTube Video URL'si">
-                        </div>
-                        <button id="setVideoButton" class="btn primary">
-                            <i class="fas fa-play-circle"></i>
-                            Videoyu Ayarla
+                    <!-- Oda Ayarları -->
+                    <div class="settings-content" id="roomSettings">
+                        <button id="createRoom" class="btn primary">
+                            <i class="fas fa-plus-circle"></i>
+                            Oda Oluştur
                         </button>
+                        
+                        <div class="join-room">
+                            <div class="input-group">
+                                <i class="fas fa-key"></i>
+                                <input type="text" id="roomId" placeholder="Oda Kodu">
+                            </div>
+                            <button id="joinRoom" class="btn secondary">
+                                <i class="fas fa-sign-in-alt"></i>
+                                Odaya Katıl
+                            </button>
+                        </div>
                     </div>
 
-                    <button id="shareScreen" class="btn primary">
-                        <i class="fas fa-desktop"></i>
-                        Ekranı Paylaş
-                    </button>
+                    <!-- Video Ayarları -->
+                    <div class="settings-content" id="videoSettings" style="display: none;">
+                        <div class="video-controls">
+                            <div class="input-group">
+                                <i class="fab fa-youtube"></i>
+                                <input type="text" id="videoUrl" placeholder="YouTube Video URL'si">
+                            </div>
+                            <button id="setVideoButton" class="btn primary">
+                                <i class="fas fa-play-circle"></i>
+                                Videoyu Ayarla
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ekran Paylaşımı -->
+                    <div class="settings-content" id="screenSettings" style="display: none;">
+                        <button id="shareScreen" class="btn primary">
+                            <i class="fas fa-desktop"></i>
+                            Ekranı Paylaş
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Sohbet Alanı -->
