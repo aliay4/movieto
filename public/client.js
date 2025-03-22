@@ -88,8 +88,8 @@ const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        // Daha fazla STUN sunucusu yerine çalışan bir TURN sunucusu kullanalım
-        // STUN sunucuları NAT arkasındaki kullanıcılar için yeterli olmayabilir
+        // NAT arkasındaki cihazlar için TURN sunucuları ekliyoruz
+        // Farklı ağlardaki kullanıcılar için TURN şarttır
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -100,10 +100,29 @@ const configuration = {
             username: 'openrelayproject',
             credential: 'openrelayproject'
         },
+        // Yedek TURN sunucuları
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:relay.metered.ca:80',
+            username: 'e8c7e3c6176cee715f06adc3',
+            credential: 'mZfCS1KYAV2z7X+j'
+        },
+        {
+            urls: 'turn:relay.metered.ca:443',
+            username: 'e8c7e3c6176cee715f06adc3',
+            credential: 'mZfCS1KYAV2z7X+j'
+        },
     ],
     iceCandidatePoolSize: 10,
+    bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
-    iceTransportPolicy: 'all'
+    // Farklı ağlardaki kullanıcılar için TURN kullanımını zorunlu kılabiliriz
+    // Test amaçlı olarak TURN'a zorla
+    iceTransportPolicy: 'relay' // 'all' yerine 'relay' kullanarak sadece TURN sunucuları kullanmaya zorla
 };
 
 // WebRTC debug modu
@@ -577,7 +596,10 @@ socket.on('webrtcSignal', async (data) => {
         // Teklif oluştur ve gönder
         try {
             webRTCLog('Ekran paylaşımı için teklif oluşturuluyor');
-            const offer = await peerConnection.createOffer();
+            const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
             await peerConnection.setLocalDescription(offer);
             
             webRTCLog('Teklif gönderiliyor');
@@ -1090,6 +1112,15 @@ function createPeerConnection() {
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
                 webRTCLog('ICE adayı bulundu:', event.candidate);
+                
+                // NAT traversal tanısı için ICE aday türü ve ilgili sunucuyu logla
+                if (event.candidate.type) {
+                    webRTCLog('ICE adayı türü:', event.candidate.type);
+                }
+                if (event.candidate.relatedAddress) {
+                    webRTCLog('ICE adayı ilişkili adres:', event.candidate.relatedAddress);
+                }
+                
                 socket.emit('webrtcSignal', {
                     type: 'ice-candidate',
                     candidate: event.candidate,
@@ -1100,25 +1131,91 @@ function createPeerConnection() {
             }
         };
         
+        // ICE bağlantı durumunu belirli aralıklarla kontrol et
+        let iceCheckInterval;
+        function startIceStateMonitoring() {
+            if (iceCheckInterval) {
+                clearInterval(iceCheckInterval);
+            }
+            
+            // Her 2 saniyede bir ICE bağlantı durumunu kontrol et
+            iceCheckInterval = setInterval(() => {
+                if (!peerConnection) {
+                    clearInterval(iceCheckInterval);
+                    return;
+                }
+                
+                webRTCLog('ICE bağlantı durumu (düzenli kontrol):', peerConnection.iceConnectionState);
+                
+                // ICE bağlantısı 30 saniye içinde kurulmazsa sorun var demektir
+                if (peerConnection.iceConnectionState === 'checking' && 
+                    Date.now() - peerConnection._creationTime > 30000) {
+                    webRTCLog('ICE bağlantısı uzun süredir kurulamıyor, TURN sunucuları erişimi kontrol ediliyor...');
+                    showNotification('Bağlantı kurulamıyor. NAT/Güvenlik Duvarı sorunları olabilir.');
+                }
+                
+                // Bağlantı koparsa temizle
+                if (peerConnection.iceConnectionState === 'disconnected' || 
+                    peerConnection.iceConnectionState === 'failed' || 
+                    peerConnection.iceConnectionState === 'closed') {
+                    clearInterval(iceCheckInterval);
+                }
+            }, 2000);
+        }
+        
+        // Bağlantı oluşturulma zamanını kaydet
+        peerConnection._creationTime = Date.now();
+        startIceStateMonitoring();
+        
         // ICE toplama durumunu izle
         peerConnection.onicegatheringstatechange = () => {
             webRTCLog('ICE toplama durumu:', peerConnection.iceGatheringState);
+            
+            // ICE aday toplama işlemi bittiğinde
+            if (peerConnection.iceGatheringState === 'complete') {
+                webRTCLog('ICE aday toplama tamamlandı. Toplanan aday sayısı kontrol ediliyor...');
+                
+                // Oluşturulan aday sayısını veya türünü kontrol et
+                const senders = peerConnection.getSenders();
+                if (senders.length > 0) {
+                    webRTCLog('Aktif gönderici sayısı:', senders.length);
+                }
+            }
         };
         
         // ICE connection durumunu izle
         peerConnection.oniceconnectionstatechange = () => {
             webRTCLog('ICE bağlantı durumu değişti:', peerConnection.iceConnectionState);
             
+            // Tarayıcıya göre bildirim içeriği değiştirilebilir
+            const isFirefox = navigator.userAgent.indexOf('Firefox') !== -1;
+            
             if (peerConnection.iceConnectionState === 'connected' || 
                 peerConnection.iceConnectionState === 'completed') {
                 webRTCLog('ICE bağlantısı başarılı!');
                 showNotification('Bağlantı kuruldu');
+                
+                // Bağlantı başarılı olduğunda seçilen ICE yolunu logla
+                if (peerConnection.getSelectedCandidatePair) {
+                    try {
+                        const pair = peerConnection.getSelectedCandidatePair();
+                        webRTCLog('Seçilen ICE aday çifti:', pair);
+                    } catch (e) {
+                        webRTCLog('Seçilen ICE aday çifti alınamadı:', e);
+                    }
+                }
             }
             else if (peerConnection.iceConnectionState === 'failed' || 
                 peerConnection.iceConnectionState === 'disconnected' || 
                 peerConnection.iceConnectionState === 'closed') {
                 webRTCLog('ICE bağlantısı başarısız oldu veya kapandı');
-                showNotification('Bağlantı kesildi. Otomatik yeniden bağlanma deneniyor...');
+                
+                // Firefox ve Chrome'da farklı mesajlar göster
+                if (isFirefox) {
+                    showNotification('Bağlantı kurulamadı. Lütfen Firefox ayarlarınızı kontrol edin.');
+                } else {
+                    showNotification('Bağlantı kesildi. NAT/Güvenlik Duvarı sorunları olabilir.');
+                }
                 
                 // Bağlantıyı yeniden kurmayı dene
                 if (localStream) {
@@ -1129,6 +1226,15 @@ function createPeerConnection() {
                         localStream.getTracks().forEach(track => {
                             peerConnection.addTrack(track, localStream);
                         });
+                        
+                        // Odadaki diğer kullanıcılara yeniden teklif gönder
+                        if (currentRoom) {
+                            webRTCLog('Yeniden teklif gönderme tetikleyicisi gönderiliyor...');
+                            socket.emit('webrtcSignal', {
+                                type: 'requestOffer',
+                                roomId: currentRoom
+                            });
+                        }
                     }, 5000);
                 } else if (currentRoom) {
                     // Ekran paylaşımını izleyen taraf için yeniden bağlanma
@@ -1232,36 +1338,40 @@ function createPeerConnection() {
     }
 }
 
-// Bekleyen ICE adaylarını işle
-async function processPendingIceCandidates() {
-    if (!window.pendingIceCandidates || !window.pendingIceCandidates.length) {
+// Bekleyen ICE adaylarını işleme fonksiyonu
+function processPendingIceCandidates() {
+    if (!pendingIceCandidates.length) {
         return;
     }
     
-    webRTCLog('Bekleyen ICE adayları işleniyor:', window.pendingIceCandidates.length);
+    webRTCLog(`İşlenmeyi bekleyen ${pendingIceCandidates.length} adet ICE adayı var`);
     
-    // Peer bağlantısı ve uzak tanımlama hazır değilse bekle
-    if (!peerConnection || !peerConnection.remoteDescription) {
-        webRTCLog('Bağlantı henüz hazır değil, adaylar bekletiliyor');
+    if (!peerConnection || peerConnection.signalingState === 'closed') {
+        webRTCLog('Peer bağlantısı kapalı, bekleyen ICE adayları işlenemedi');
+        pendingIceCandidates = []; // Adayları temizle
         return;
     }
     
-    try {
-        // Bekleyen tüm adayları işle
-        for (const candidate of window.pendingIceCandidates) {
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                webRTCLog('Bekleyen ICE adayı eklendi');
-            } catch (err) {
-                webRTCLog('Bekleyen ICE adayı eklenirken hata:', err);
-            }
+    // RemoteDescription yoksa işleme yapma
+    if (!peerConnection.remoteDescription) {
+        webRTCLog('RemoteDescription yok, bekleyen ICE adayları işlenemedi');
+        return;
+    }
+    
+    while (pendingIceCandidates.length > 0) {
+        const candidate = pendingIceCandidates.shift();
+        try {
+            webRTCLog('Bekleyen ICE adayı ekleniyor:', candidate);
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                .then(() => {
+                    webRTCLog('Bekleyen ICE adayı başarıyla eklendi');
+                })
+                .catch(error => {
+                    webRTCLog('Bekleyen ICE adayı eklenirken hata:', error);
+                });
+        } catch (e) {
+            webRTCLog('Bekleyen ICE adayı işlenirken hata:', e);
         }
-        
-        // İşlenen adayları temizle
-        window.pendingIceCandidates = [];
-        webRTCLog('Tüm bekleyen ICE adayları işlendi');
-    } catch (error) {
-        webRTCLog('Bekleyen ICE adayları işlenirken hata:', error);
     }
 }
 
@@ -1660,4 +1770,131 @@ function createNotificationElement() {
     notification.className = 'notification';
     document.body.appendChild(notification);
     return notification;
+}
+
+// Bekleyen ICE adayları için global değişken
+let pendingIceCandidates = [];
+
+// WebRTC sinyallerini işleme fonksiyonu
+function handleWebRTCSignal(signal) {
+    try {
+        webRTCLog('WebRTC sinyali alındı:', signal.type);
+        
+        if (signal.type === 'offer') {
+            webRTCLog('Teklif alındı');
+            handleOffer(signal.offer);
+        } 
+        else if (signal.type === 'answer') {
+            webRTCLog('Cevap alındı');
+            handleAnswer(signal.answer);
+        } 
+        else if (signal.type === 'ice-candidate') {
+            webRTCLog('ICE adayı alındı');
+            
+            // ICE adaylarını uygun şekilde işle
+            if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+                webRTCLog('ICE adayı hemen ekleniyor');
+                peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate))
+                    .then(() => {
+                        webRTCLog('ICE adayı başarıyla eklendi');
+                    })
+                    .catch(e => {
+                        webRTCLog('ICE adayı eklenirken hata:', e);
+                    });
+            } else {
+                webRTCLog('ICE adayı bekletiliyor - henüz RemoteDescription yok');
+                pendingIceCandidates.push(signal.candidate);
+            }
+        }
+        else if (signal.type === 'screen-share-started') {
+            webRTCLog('Ekran paylaşımı başlatıldı sinyali alındı');
+            showNotification('Ekran paylaşımı başlatıldı, bağlantı kuruluyor...');
+        }
+        else if (signal.type === 'screen-share-stopped') {
+            webRTCLog('Ekran paylaşımı durduruldu sinyali alındı');
+            cleanupScreenShare();
+            showNotification('Ekran paylaşımı sonlandırıldı');
+        }
+        else if (signal.type === 'requestOffer') {
+            webRTCLog('Teklif istendi, yeni teklif gönderiliyor...');
+            // Eğer yerel akış varsa, yeni teklif gönder
+            if (localStream) {
+                createAndSendOffer();
+            }
+        }
+    } catch (error) {
+        webRTCLog('WebRTC sinyali işlenirken hata:', error);
+    }
+}
+
+// Gelen teklifi işleme
+async function handleOffer(offer) {
+    try {
+        webRTCLog('Gelen teklif işleniyor:', offer);
+        
+        if (!peerConnection) {
+            webRTCLog('Yeni peer bağlantısı oluşturuluyor...');
+            if (!createPeerConnection()) {
+                webRTCLog('Peer bağlantısı oluşturulamadı, teklif işlenemiyor');
+                return false;
+            }
+        }
+        
+        // RemoteDescription'ı ayarla
+        const rtcOffer = new RTCSessionDescription(offer);
+        await peerConnection.setRemoteDescription(rtcOffer);
+        
+        webRTCLog('Uzak açıklama başarıyla ayarlandı, cevap oluşturuluyor...');
+        
+        // Cevap oluştur
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        webRTCLog('Cevap oluşturuldu:', answer);
+        
+        // Cevabı gönder
+        socket.emit('webrtcSignal', {
+            type: 'answer',
+            answer: peerConnection.localDescription,
+            roomId: currentRoom
+        });
+        
+        webRTCLog('Cevap gönderildi');
+        
+        // Uzak açıklama ayarlandığında bekleyen ICE adaylarını işle
+        processPendingIceCandidates();
+        
+        return true;
+    } catch (error) {
+        webRTCLog('Teklif işlenirken hata:', error);
+        showNotification('Gelen bağlantı teklifi işlenemedi: ' + error.message);
+        return false;
+    }
+}
+
+// Gelen cevabı işleme
+async function handleAnswer(answer) {
+    try {
+        if (!peerConnection) {
+            webRTCLog('Cevap işlenemedi: Peer bağlantısı yok');
+            return false;
+        }
+        
+        webRTCLog('Gelen cevap işleniyor:', answer);
+        
+        // RemoteDescription'ı ayarla
+        const rtcAnswer = new RTCSessionDescription(answer);
+        await peerConnection.setRemoteDescription(rtcAnswer);
+        
+        webRTCLog('Uzak açıklama başarıyla ayarlandı');
+        
+        // Uzak açıklama ayarlandığında bekleyen ICE adaylarını işle
+        processPendingIceCandidates();
+        
+        return true;
+    } catch (error) {
+        webRTCLog('Cevap işlenirken hata:', error);
+        showNotification('Bağlantı cevabı işlenemedi: ' + error.message);
+        return false;
+    }
 }
