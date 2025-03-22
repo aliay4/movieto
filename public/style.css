@@ -452,14 +452,19 @@ input[type="range"]::-webkit-slider-thumb {
     border-radius: 50%;
     object-fit: cover;
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    background-color: #fff;
+    padding: 5px;
 }
 
 .loading-text {
     color: white;
     font-size: 24px;
-    margin-bottom: 20px;
+    margin: 20px;
     font-weight: 500;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    max-width: 80%;
+    line-height: 1.4;
 }
 
 .loading-spinner {
