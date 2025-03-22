@@ -1920,3 +1920,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }, 3000);
 });
+
+// Yükleme ekranını 10 saniye sonra kaldır
+setTimeout(() => {
+    const loadingScreen = document.querySelector('.loading-screen');
+    if (loadingScreen) {
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 500);
+    }
+}, 10000); // 10 saniye
