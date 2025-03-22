@@ -1906,3 +1906,16 @@ document.querySelectorAll('.settings-tab').forEach(tab => {
         document.getElementById(tabId + 'Settings').style.display = 'block';
     });
 });
+
+// Sayfa yüklendiğinde yükleme ekranını kaldır
+document.addEventListener('DOMContentLoaded', () => {
+    const loadingScreen = document.querySelector('.loading-screen');
+    
+    // Herhangi bir yere tıklandığında yükleme ekranını kaldır
+    document.addEventListener('click', () => {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 500);
+    }, { once: true }); // Sadece bir kez çalışsın
+});
