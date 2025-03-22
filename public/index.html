@@ -11,12 +11,24 @@
     <div class="container">
         <div class="app-header">
             <h1><i class="fas fa-baby"></i> Bebe Watch</h1>
-            <p class="subtitle">uzaktan izleyin </p>
+            <p class="subtitle"> for bebe </p>
         </div>
 
         <div class="main-content">
             <!-- Sol Panel -->
             <div class="side-panel">
+                <!-- Kullanıcı Adı Girişi -->
+                <div class="user-login">
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="usernameInput" placeholder="Kullanıcı Adınız" maxlength="20">
+                    </div>
+                    <button id="usernameSubmit" class="btn primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Giriş Yap
+                    </button>
+                </div>
+
                 <div class="room-info">
                     <div id="roomDisplay" class="room-display">
                         <i class="fas fa-door-closed"></i>
@@ -77,22 +89,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Kullanıcı Adı Modal -->
-    <div id="usernameModal" class="modal">
-        <div class="modal-content">
-            <h2><i class="fas fa-user"></i> Hoş Geldiniz</h2>
-            <p>Sohbete katılmak için lütfen bir kullanıcı adı girin:</p>
-            <div class="input-group">
-                <i class="fas fa-user"></i>
-                <input type="text" id="usernameInput" placeholder="Kullanıcı Adı" maxlength="20">
-            </div>
-            <button id="usernameSubmit" class="btn primary">
-                <i class="fas fa-sign-in-alt"></i>
-                Giriş Yap
-            </button>
         </div>
     </div>
 

@@ -506,7 +506,7 @@ socket.on('activeScreenShare', (userId) => {
         // Ekran paylaşımı yapan kullanıcıya özel olarak teklif gönderiliyor
         webRTCLog('Ekran paylaşımı yapan kullanıcıya teklif gönderiliyor');
         setTimeout(() => {
-            createAndSendOffer(userId);
+        createAndSendOffer(userId);
         }, 1000); // Bağlantının kurulması için kısa bir gecikme ekle
     }
 });
@@ -600,13 +600,13 @@ socket.on('webrtcSignal', async (data) => {
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
             });
-            await peerConnection.setLocalDescription(offer);
-            
+        await peerConnection.setLocalDescription(offer);
+        
             webRTCLog('Teklif gönderiliyor');
-            socket.emit('webrtcSignal', {
-                type: 'offer',
-                offer: peerConnection.localDescription,
-                roomId: currentRoom,
+        socket.emit('webrtcSignal', {
+            type: 'offer',
+            offer: peerConnection.localDescription,
+            roomId: currentRoom,
                 targetUserId: data.fromUserId
             });
         } catch (e) {
@@ -649,7 +649,7 @@ socket.on('webrtcSignal', async (data) => {
             try {
                 webRTCLog('Cevap alındı, işleniyor...');
                 if (peerConnection && peerConnection.signalingState !== 'closed') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                     webRTCLog('Bağlantı cevabı alındı ve işlendi');
                 } else {
                     webRTCLog('Cevap işlenemedi: Peer bağlantısı kapalı veya yok');
@@ -671,7 +671,7 @@ socket.on('webrtcSignal', async (data) => {
                 
                 if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
                     webRTCLog('ICE adayı ekleniyor:', data.candidate);
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
                     webRTCLog('ICE adayı eklendi');
                 } else {
                     webRTCLog('ICE adayı şu anda eklenemiyor - bağlantı henüz hazır değil');
@@ -983,7 +983,7 @@ async function startScreenShare() {
             // odadaki tüm kullanıcılara offer göndermek için bir tetikleyici gönder
             setTimeout(() => {
                 webRTCLog('Teklif oluşturma tetikleyicisi gönderiliyor');
-                socket.emit('webrtcSignal', {
+                            socket.emit('webrtcSignal', {
                     type: 'requestOffer',
                     roomId: currentRoom
                 });
@@ -993,7 +993,7 @@ async function startScreenShare() {
         }
         
         return true;
-    } catch (error) {
+                } catch (error) {
         webRTCLog('Ekran paylaşımı başlatılamadı:', error);
         showNotification('Ekran paylaşımı başlatılamadı: ' + error.message);
         return false;
@@ -1011,24 +1011,24 @@ function stopScreenShare() {
                 track.stop();
                 webRTCLog(`${track.kind} izi durduruldu`);
             });
-            
-            // Odadaki diğer kullanıcılara bildir
-            if (currentRoom) {
+        
+        // Odadaki diğer kullanıcılara bildir
+        if (currentRoom) {
                 webRTCLog('Ekran paylaşımı durdurma sinyali gönderiliyor');
-                socket.emit('webrtcSignal', {
-                    type: 'screenShareStopped',
-                    roomId: currentRoom
-                });
-                
-                // Odada aktif ekran paylaşımı olmadığını kaydet
-                socket.emit('setActiveScreenShare', {
-                    roomId: currentRoom,
-                    active: false
-                });
-            }
+            socket.emit('webrtcSignal', {
+                type: 'screenShareStopped',
+                roomId: currentRoom
+            });
             
-            // Peer bağlantısını kapat
-            if (peerConnection) {
+            // Odada aktif ekran paylaşımı olmadığını kaydet
+            socket.emit('setActiveScreenShare', {
+                roomId: currentRoom,
+                active: false
+            });
+        }
+        
+        // Peer bağlantısını kapat
+        if (peerConnection) {
                 webRTCLog('Peer bağlantısı kapatılıyor');
                 try {
                     // Önce tüm aktif izleri kaldır
@@ -1043,30 +1043,30 @@ function stopScreenShare() {
                     });
                     
                     // Bağlantıyı kapat
-                    peerConnection.close();
+            peerConnection.close();
                     webRTCLog('Peer bağlantısı başarıyla kapatıldı');
                 } catch (e) {
                     webRTCLog('Peer bağlantısı kapatılırken hata:', e);
                 }
-                peerConnection = null;
-            }
+            peerConnection = null;
+        }
             
             // Lokal akışı temizle
             localStream = null;
-            
-            // YouTube player'ı geri yükle
+        
+        // YouTube player'ı geri yükle
             try {
                 if (currentRoom && rooms[currentRoom] && rooms[currentRoom].currentVideo) {
                     webRTCLog('YouTube videosu yükleniyor:', rooms[currentRoom].currentVideo.videoUrl);
-                    loadYouTubeVideo(rooms[currentRoom].currentVideo.videoUrl);
-                } else {
-                    // Video yoksa placeholder göster
+            loadYouTubeVideo(rooms[currentRoom].currentVideo.videoUrl);
+        } else {
+            // Video yoksa placeholder göster
                     webRTCLog('Video placeholder gösteriliyor');
-                    const videoContainer = document.getElementById('videoContainer');
-                    videoContainer.innerHTML = `
-                        <div class="video-placeholder">
-                            <i class="fab fa-youtube"></i>
-                            <p>Video yüklemek için önce bir odaya katılın ve YouTube URL'si girin</p>
+            const videoContainer = document.getElementById('videoContainer');
+            videoContainer.innerHTML = `
+                <div class="video-placeholder">
+                    <i class="fab fa-youtube"></i>
+                    <p>Video yüklemek için önce bir odaya katılın ve YouTube URL'si girin</p>
                         </div>
                     `;
                 }
@@ -1077,11 +1077,11 @@ function stopScreenShare() {
                 videoContainer.innerHTML = `
                     <div class="video-placeholder">
                         <p>Video oynatıcı yüklenemedi. Sayfayı yenilemeyi deneyin.</p>
-                    </div>
-                `;
-            }
-            
-            showNotification('Ekran paylaşımı durduruldu');
+                </div>
+            `;
+        }
+        
+        showNotification('Ekran paylaşımı durduruldu');
             return true;
         } catch (error) {
             webRTCLog('Ekran paylaşımı durdurulurken hata:', error);
@@ -1106,11 +1106,11 @@ function createPeerConnection() {
             peerConnection = null;
         }
         
-        peerConnection = new RTCPeerConnection(configuration);
-        
-        // ICE adaylarını dinle
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
+    peerConnection = new RTCPeerConnection(configuration);
+    
+    // ICE adaylarını dinle
+    peerConnection.onicecandidate = event => {
+        if (event.candidate) {
                 webRTCLog('ICE adayı bulundu:', event.candidate);
                 
                 // NAT traversal tanısı için ICE aday türü ve ilgili sunucuyu logla
@@ -1121,11 +1121,11 @@ function createPeerConnection() {
                     webRTCLog('ICE adayı ilişkili adres:', event.candidate.relatedAddress);
                 }
                 
-                socket.emit('webrtcSignal', {
-                    type: 'ice-candidate',
-                    candidate: event.candidate,
-                    roomId: currentRoom
-                });
+            socket.emit('webrtcSignal', {
+                type: 'ice-candidate',
+                candidate: event.candidate,
+                roomId: currentRoom
+            });
             } else {
                 webRTCLog('ICE toplama tamamlandı - tüm adaylar gönderildi');
             }
@@ -1292,9 +1292,9 @@ function createPeerConnection() {
             webRTCLog('Peer bağlantı hatası:', error);
             showNotification('Bağlantı hatası oluştu');
         };
-        
-        // Uzak akışı al
-        peerConnection.ontrack = event => {
+    
+    // Uzak akışı al
+    peerConnection.ontrack = event => {
             webRTCLog('Uzak medya akışı alındı:', event.streams[0]);
             
             // Akış yoksa hata ver ve çık
@@ -1305,7 +1305,7 @@ function createPeerConnection() {
             }
             
             // Akış detaylarını logla ve mevcut remoteStream'i güncelle
-            remoteStream = event.streams[0];
+        remoteStream = event.streams[0];
             webRTCLog('Akış ID:', remoteStream.id);
             webRTCLog('Video izleri:', remoteStream.getVideoTracks().length);
             webRTCLog('Ses izleri:', remoteStream.getAudioTracks().length);
@@ -1481,9 +1481,9 @@ function createRemoteVideoElement(stream) {
                 videoContainer.innerHTML = '';
                 
                 // Yeni video elementi oluştur - srcObject kullanmadan önce DOM'a ekle
-                const remoteVideo = document.createElement('video');
+        const remoteVideo = document.createElement('video');
                 remoteVideo.id = 'remoteVideo';
-                remoteVideo.autoplay = true;
+        remoteVideo.autoplay = true;
                 remoteVideo.playsInline = true;
                 remoteVideo.muted = false;
                 remoteVideo.controls = true;
