@@ -802,28 +802,8 @@ async function handleIncomingOfferWhileSharing(data) {
     }
 }
 
-// Ekran paylaşımı butonunu ekle
-function addScreenShareButton() {
-    const button = document.createElement('button');
-    button.id = 'screenShareButton';
-    button.className = 'btn primary';
-    button.innerHTML = '<i class="fas fa-desktop"></i> Ekran Paylaş';
-    button.addEventListener('click', startScreenShare);
-    
-    document.querySelector('.video-controls').appendChild(button);
-}
 
-// Sayfa yüklendiğinde ekran paylaşımı butonunu ekle
-document.addEventListener('DOMContentLoaded', () => {
-    // Mevcut kodlar...
-    
-    // WebRTC desteğini kontrol et
-    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-        addScreenShareButton();
-    } else {
-        console.warn('Bu tarayıcı ekran paylaşımını desteklemiyor');
-    }
-});
+
 
 // Ekran paylaşımı başlatma fonksiyonunu güncelleyelim
 async function startScreenShare() {
