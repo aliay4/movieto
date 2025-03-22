@@ -720,7 +720,7 @@ socket.on('activeScreenShareSet', (data) => {
         if (data.active) {
             webRTCLog('Ekran paylaşımı başarıyla aktifleştirildi');
             // localStream ve diğer ayarlar zaten yapıldı, burada ek işlemler yapılabilir
-        } else {
+    } else {
             webRTCLog('Ekran paylaşımı başarıyla durduruldu');
         }
     } else {
@@ -742,20 +742,20 @@ async function handleIncomingOfferWhileSharing(data) {
         webRTCLog('Ekran paylaşımı yaparken gelen teklif işleniyor...');
         
         // Her yeni kullanıcı için yeni bir bağlantı oluştur
-        const newPeerConnection = new RTCPeerConnection(configuration);
-        
-        // ICE adaylarını dinle
-        newPeerConnection.onicecandidate = event => {
-            if (event.candidate) {
+                    const newPeerConnection = new RTCPeerConnection(configuration);
+                    
+                    // ICE adaylarını dinle
+                    newPeerConnection.onicecandidate = event => {
+                        if (event.candidate) {
                 webRTCLog('ICE adayı gönderiliyor (yeni bağlantı):', event.candidate);
-                socket.emit('webrtcSignal', {
-                    type: 'ice-candidate',
-                    candidate: event.candidate,
-                    roomId: currentRoom,
-                    targetUserId: data.fromUserId
-                });
-            }
-        };
+                            socket.emit('webrtcSignal', {
+                                type: 'ice-candidate',
+                                candidate: event.candidate,
+                                roomId: currentRoom,
+                                targetUserId: data.fromUserId
+                            });
+                        }
+                    };
         
         // ICE durum değişikliklerini izle
         newPeerConnection.oniceconnectionstatechange = () => {
@@ -776,27 +776,27 @@ async function handleIncomingOfferWhileSharing(data) {
             webRTCLog('Lokalstream bulunamadı!');
             return;
         }
-        
-        // Uzak açıklamayı ayarla
+                    
+                    // Uzak açıklamayı ayarla
         webRTCLog('Uzak açıklama ayarlanıyor (yeni bağlantı)...');
-        await newPeerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-        
-        // Cevap oluştur
+                    await newPeerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    
+                    // Cevap oluştur
         webRTCLog('Cevap oluşturuluyor (yeni bağlantı)...');
-        const answer = await newPeerConnection.createAnswer();
-        await newPeerConnection.setLocalDescription(answer);
-        
-        // Cevabı gönder
+                    const answer = await newPeerConnection.createAnswer();
+                    await newPeerConnection.setLocalDescription(answer);
+                    
+                    // Cevabı gönder
         webRTCLog('Cevap gönderiliyor (yeni bağlantı)...');
-        socket.emit('webrtcSignal', {
-            type: 'answer',
-            answer: newPeerConnection.localDescription,
-            roomId: currentRoom,
-            targetUserId: data.fromUserId
-        });
-        
+                    socket.emit('webrtcSignal', {
+                        type: 'answer',
+                        answer: newPeerConnection.localDescription,
+                        roomId: currentRoom,
+                        targetUserId: data.fromUserId
+                    });
+                    
         webRTCLog('Yeni kullanıcıya ekran paylaşımı cevabı gönderildi');
-    } catch (error) {
+                } catch (error) {
         webRTCLog('Ekran paylaşımı cevabı oluşturulamadı:', error);
         showNotification('Bağlantı hatası: ' + error.message);
     }
@@ -973,7 +973,7 @@ async function startScreenShare() {
         }
         
         return true;
-                } catch (error) {
+    } catch (error) {
         webRTCLog('Ekran paylaşımı başlatılamadı:', error);
         showNotification('Ekran paylaşımı başlatılamadı: ' + error.message);
         return false;
@@ -1907,15 +1907,16 @@ document.querySelectorAll('.settings-tab').forEach(tab => {
     });
 });
 
-// Sayfa yüklendiğinde yükleme ekranını kaldır
+// Sayfa yüklendiğinde yükleme ekranını göster
 document.addEventListener('DOMContentLoaded', () => {
-    const loadingScreen = document.querySelector('.loading-screen');
-    
-    // Herhangi bir yere tıklandığında yükleme ekranını kaldır
-    document.addEventListener('click', () => {
+    // 3 saniye sonra yükleme ekranını kaldır
+    setTimeout(() => {
+        const loadingScreen = document.querySelector('.loading-screen');
         loadingScreen.classList.add('fade-out');
+        
+        // Animasyon bittikten sonra yükleme ekranını tamamen kaldır
         setTimeout(() => {
             loadingScreen.style.display = 'none';
         }, 500);
-    }, { once: true }); // Sadece bir kez çalışsın
+    }, 3000);
 });
