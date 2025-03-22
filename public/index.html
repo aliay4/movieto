@@ -8,30 +8,14 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Kullanıcı Adı Modal -->
-    <div id="usernameModal" class="modal">
-        <div class="modal-content">
-            <h2><i class="fas fa-user"></i> Hoş Geldiniz</h2>
-            <p>Sohbete katılmak için lütfen bir kullanıcı adı girin:</p>
-            <div class="input-group">
-                <i class="fas fa-user"></i>
-                <input type="text" id="usernameInput" placeholder="Kullanıcı Adı" maxlength="20">
-            </div>
-            <button id="usernameSubmit" class="btn primary">
-                <i class="fas fa-sign-in-alt"></i>
-                Giriş Yap
-            </button>
-        </div>
-    </div>
-
     <div class="container">
-        <header>
-            <h1>Bebe Watch</h1>
-            <p class="subtitle">Arkadaşlarınızla senkronize video izleyin</p>
-        </header>
+        <div class="app-header">
+            <h1><i class="fas fa-baby"></i> Bebe Watch</h1>
+            <p class="subtitle">uzaktan izleyin </p>
+        </div>
 
         <div class="main-content">
-            <!-- Sol Panel: Oda Yönetimi -->
+            <!-- Sol Panel -->
             <div class="side-panel">
                 <div class="room-info">
                     <div id="roomDisplay" class="room-display">
@@ -57,16 +41,10 @@
                         </button>
                     </div>
 
-                    <div class="video-controls">
-                        <div class="input-group">
-                            <i class="fab fa-youtube"></i>
-                            <input type="text" id="videoUrl" placeholder="YouTube Video URL'si">
-                        </div>
-                        <button id="setVideoButton" class="btn primary">
-                            <i class="fas fa-play-circle"></i>
-                            Videoyu Ayarla
-                        </button>
-                    </div>
+                    <button id="shareScreen" class="btn primary">
+                        <i class="fas fa-desktop"></i>
+                        Ekranı Paylaş
+                    </button>
                 </div>
             </div>
             
@@ -74,25 +52,8 @@
             <div class="content-panel">
                 <div id="videoContainer" class="video-container">
                     <div class="video-placeholder">
-                        <i class="fab fa-youtube"></i>
-                        <p>Video yüklemek için önce bir odaya katılın ve YouTube URL'si girin</p>
-                    </div>
-                </div>
-
-                <div class="playback-controls">
-                    <div class="control-buttons">
-                        <button id="playButton" class="btn control">
-                            <i class="fas fa-play"></i>
-                        </button>
-                        <button id="pauseButton" class="btn control">
-                            <i class="fas fa-pause"></i>
-                        </button>
-                    </div>
-                    
-                    <div class="time-control">
-                        <span id="currentTime">00:00</span>
-                        <input type="range" id="timeSlider" min="0" max="100" value="0">
-                        <span id="totalTime">00:00</span>
+                        <i class="fas fa-baby"></i>
+                        <p> bir odaya katılın</p>
                     </div>
                 </div>
             </div>
@@ -116,6 +77,22 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Kullanıcı Adı Modal -->
+    <div id="usernameModal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-user"></i> Hoş Geldiniz</h2>
+            <p>Sohbete katılmak için lütfen bir kullanıcı adı girin:</p>
+            <div class="input-group">
+                <i class="fas fa-user"></i>
+                <input type="text" id="usernameInput" placeholder="Kullanıcı Adı" maxlength="20">
+            </div>
+            <button id="usernameSubmit" class="btn primary">
+                <i class="fas fa-sign-in-alt"></i>
+                Giriş Yap
+            </button>
         </div>
     </div>
 
