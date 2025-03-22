@@ -66,7 +66,7 @@ header h1 {
 /* Ana İçerik Düzeni */
 .main-content {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 1fr 300px;
     gap: 30px;
     background: white;
     border-radius: 15px;
@@ -75,9 +75,14 @@ header h1 {
 }
 
 /* Sol Panel */
-.side-panel {
+.content-panel {
     padding: 20px;
     border-right: 1px solid #e0e0e0;
+}
+
+/* Sağ Panel */
+.side-panel {
+    padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -169,6 +174,14 @@ header h1 {
     align-self: flex-start;
 }
 
+.chat-message.system {
+    background: #f0f2f5;
+    color: #666;
+    align-self: center;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
 .chat-message .username {
     font-size: 0.8em;
     font-weight: 500;
@@ -178,15 +191,11 @@ header h1 {
 .chat-input {
     display: flex;
     gap: 10px;
+    margin-top: 10px;
 }
 
 .chat-input .input-group {
     flex: 1;
-}
-
-/* Sağ Panel */
-.content-panel {
-    padding: 20px;
 }
 
 /* Video Konteyner */
@@ -380,8 +389,12 @@ input[type="range"]::-webkit-slider-thumb {
     }
     
     .side-panel {
+        border-top: 1px solid #e0e0e0;
         border-right: none;
-        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .content-panel {
+        border-right: none;
     }
 }
 
