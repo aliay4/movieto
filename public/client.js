@@ -1898,3 +1898,15 @@ async function handleAnswer(answer) {
         return false;
     }
 }
+
+// Ekran paylaşımı butonunu dinle
+document.getElementById('shareScreen').addEventListener('click', startScreenShare);
+
+// WebRTC desteğini kontrol et
+if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+    webRTCLog('WebRTC destekleniyor');
+} else {
+    webRTCLog('WebRTC desteklenmiyor');
+    document.getElementById('shareScreen').disabled = true;
+    document.getElementById('shareScreen').title = 'Tarayıcınız ekran paylaşımını desteklemiyor';
+}
