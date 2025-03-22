@@ -476,3 +476,23 @@ input[type="range"]::-webkit-slider-thumb {
     background-color: #000;
     object-fit: contain;
 }
+
+/* Video Kontrolleri */
+.video-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.video-controls .input-group {
+    margin-bottom: 0;
+}
+
+.video-controls button {
+    width: 100%;
+    justify-content: center;
+}
